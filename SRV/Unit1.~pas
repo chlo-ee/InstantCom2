@@ -333,7 +333,7 @@ begin
     end;
   end;
   Clients := tmpl;
-  UserRefresh.Enabled := True;  //Sockets need some time to get the correct IDs. We give them 1 second which should be more than enough
+  UserRefresh.Enabled := True;
 end;
 
 procedure TForm1.btn_infoClick(Sender: TObject);

@@ -1,6 +1,6 @@
 object Form1: TForm1
-  Left = 435
-  Top = 237
+  Left = 436
+  Top = 238
   Width = 811
   Height = 434
   Caption = 'ICom2 Server'

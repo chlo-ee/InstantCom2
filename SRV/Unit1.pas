@@ -375,6 +375,7 @@ procedure TForm1.TCPServerError(Sender: TObject; Socket: TCustomWinSocket; Error
 begin
   output.lines.Append('[ii] ' + TUserData(clients[GetIDbyHandle(Socket.Handle)]).Host + ' jumped out of the window(s).');
   Socket.Close;
+  Socket.Destroy;
   ErrorCode := 0; //Nothing happened, just walk on!
 end;
 end.
