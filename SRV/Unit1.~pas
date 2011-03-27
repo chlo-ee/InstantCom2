@@ -4,12 +4,13 @@ interface
 
 uses
   Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
-  Dialogs, StdCtrls, ScktComp, ExtCtrls;
+  Dialogs, StdCtrls, ScktComp, ExtCtrls, ComCtrls;
 
 type
   TUserData = class
   public
     Host:String;
+    Hostname:String;
     Socket:Integer;
     Username: String;
     BePrivate: Boolean;
@@ -24,6 +25,14 @@ type
     btn_priv_on: TButton;
     btn_priv_off: TButton;
     btn_privmsg: TButton;
+    btn_kickall: TButton;
+    accept: TCheckBox;
+    btn_save: TButton;
+    SaveDialog1: TSaveDialog;
+    block: TListBox;
+    btn_block: TButton;
+    btn_unblock: TButton;
+    StatusBar1: TStatusBar;
     function GetSelected() : String;
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -39,6 +48,11 @@ type
     procedure btn_priv_onClick(Sender: TObject);
     procedure btn_priv_offClick(Sender: TObject);
     procedure btn_privmsgClick(Sender: TObject);
+    procedure btn_kickallClick(Sender: TObject);
+    procedure btn_saveClick(Sender: TObject);
+    procedure btn_blockClick(Sender: TObject);
+    procedure btn_unblockClick(Sender: TObject);
+    procedure userlistClick(Sender: TObject);
   private
     { Private declarations }
   public
@@ -149,6 +163,19 @@ begin
   result := 'UnidentifiedUser';
 end;
 
+function GetIPbyUsername(user: String) : String;
+var
+  n: Integer; // loop-counter
+begin
+  for n := 0 to Clients.Count - 1 do begin
+    if TUserData(Clients[n]).Username = User then begin
+      result := TUserData(Clients[n]).Host;
+      exit;
+    end;
+  end;
+  result := 'UnidentifiedUser';
+end;
+
 
 //Read client comments for understanding this... Very easy ;)
 procedure TForm1.FormCreate(Sender: TObject);
@@ -226,6 +253,7 @@ begin
     output.Refresh;
     Client:=TUserData.Create;
     Client.Host:=Socket.RemoteAddress;
+    Client.Hostname:=Socket.RemoteHost;
     Client.Socket:=Socket.Handle;
     Client.Username:=Socket.RemoteAddress + inttostr(Socket.Handle);
     Client.BePrivate:=False;
@@ -271,10 +299,22 @@ begin
 end;
 
 procedure TForm1.TCPServerConnect(Sender: TObject; Socket: TCustomWinSocket);
+var
+  n : Integer;
 begin
   //showmessage('lol');
-  Socket.Accept(Socket.Handle);
-  Socket.SendText('208 Connection established.')
+  if accept.Checked then begin
+    for n:=0 to block.Count - 1 do begin
+      if block.items[n] = Socket.RemoteAddress then begin
+        Socket.Close;
+        exit;
+      end;
+    end;
+    Socket.Accept(Socket.Handle);
+    Socket.SendText('208 Connection established.')
+  end
+  else
+    Socket.Close;
 end;
 
 procedure TForm1.TCPServerDisconnect(Sender: TObject; Socket: TCustomWinSocket);
@@ -282,6 +322,7 @@ var
   tmpl : TList;
   n  : Integer;
 begin
+  if clients.count = 0 then exit; //Keep it in the bounds!
   output.lines.Append('[ii] ' + TUserData(clients[GetIDbyHandle(Socket.Handle)]).Host + ' has disconnected.');
   output.Refresh;
   tmpl := TList.Create;
@@ -339,7 +380,7 @@ end;
 procedure TForm1.btn_infoClick(Sender: TObject);
 begin
   if GetSelected = #129 then exit;
-  showmessage('UID: ' + inttostr(GetIDByUser(GetSelected)) + #13 + #10 + 'Host: ' + TUserData(Clients[GetIDByUser(GetSelected)]).Host  + #13 + #10 + 'Username: ' + TUserData(Clients[GetIDByUser(GetSelected)]).Username);
+  showmessage('UID: ' + inttostr(GetIDByUser(GetSelected)) + #13 + #10 + 'Host: ' + TUserData(Clients[GetIDByUser(GetSelected)]).Host + #13 + #10 + 'Hostname: ' + TUserData(Clients[GetIDByUser(GetSelected)]).Hostname  + #13 + #10 + 'Username: ' + TUserData(Clients[GetIDByUser(GetSelected)]).Username);
 end;
 
 procedure TForm1.btn_priv_onClick(Sender: TObject);
@@ -375,6 +416,44 @@ procedure TForm1.TCPServerError(Sender: TObject; Socket: TCustomWinSocket; Error
 begin
   output.lines.Append('[ii] ' + TUserData(clients[GetIDbyHandle(Socket.Handle)]).Host + ' jumped out of the window(s).');
   Socket.Close;
+  Socket.Destroy;
   ErrorCode := 0; //Nothing happened, just walk on!
 end;
+procedure TForm1.btn_kickallClick(Sender: TObject);
+var
+  n: Integer;
+begin
+  for n := 0 to clients.count - 1 do
+    TCPServer.Socket.Connections[n].Close;
+  Clients.Clear;
+  userlist.Clear;
+end;
+
+procedure TForm1.btn_saveClick(Sender: TObject);
+var
+  txtFile : TextFile;
+begin
+  if SaveDialog1.Execute then begin
+    AssignFile(txtFile, SaveDialog1.FileName);
+    rewrite(txtFile);
+    writeln(txtFile, output.Text);
+    closefile(txtFile);
+  end;
+end;
+
+procedure TForm1.btn_blockClick(Sender: TObject);
+begin
+  block.Items.Append(GetIPbyUsername(getSelected()));
+end;
+
+procedure TForm1.btn_unblockClick(Sender: TObject);
+begin
+  block.DeleteSelected
+end;
+
+procedure TForm1.userlistClick(Sender: TObject);
+begin
+StatusBar1.Panels[0].Text := 'UID: ' + inttostr(GetIDByUser(GetSelected)) + ' - ' + 'Host: ' + TUserData(Clients[GetIDByUser(GetSelected)]).Host + ' - ' + 'Hostname: ' + TUserData(Clients[GetIDByUser(GetSelected)]).Hostname  + ' - ' + 'Username: ' + TUserData(Clients[GetIDByUser(GetSelected)]).Username;
+end;
+
 end.
